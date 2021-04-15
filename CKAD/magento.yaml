@@ -1,0 +1,167 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: magento
+data:
+  MAGENTO_SEARCH_ENGINE: elasticsearch7
+  MAGENTO_ELASTICSEARCH_HOST: elasticsearch
+  MAGENTO_DATABASE_HOST: mariadb
+  MAGENTO_DATABASE_NAME: magento
+  MAGENTO_DATABASE_PASSWORD: magento
+  MAGENTO_DATABASE_USER: magento
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mariadb
+data:
+  MYSQL_ROOT_PASSWORD: toor
+  MYSQL_DATABASE: magento
+  MYSQL_USER: magento
+  MYSQL_PASSWORD: magento
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch
+data:
+  discovery.type: single-node
+  discovery.seed_hosts: localhost
+  ES_JAVA_OPTS: -Xms512m -Xmx512m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: magento
+spec:
+  selector:
+    matchLabels:
+      app: magento
+  template:
+    metadata:
+      labels:
+        app: magento
+    spec:
+      containers:
+      - name: app
+        image: bitnami/magento:2.4.2
+        envFrom:
+          - configMapRef:
+              name: magento
+        resources:
+          requests:
+            memory: 64Mi
+            cpu: 250m
+          limits:
+            memory: 128Mi
+            cpu: 500m
+        ports:
+        - name: web
+          containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: magento
+spec:
+  selector:
+    app: magento
+  ports:
+    - name: web
+      port: 80
+      targetPort: 80
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+spec:
+  selector:
+    app: mariadb
+  ports:
+    - name: db
+      port: 3306
+      targetPort: 3306
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+    - name: api
+      port: 9200
+      targetPort: 9200
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+spec:
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elastic
+        image: elasticsearch:7.12.0
+        envFrom:
+          - configMapRef:
+              name: elasticsearch
+        securityContext:
+          privileged: true
+          runAsUser: 1000
+          capabilities:
+            add:
+            - IPC_LOCK
+            - SYS_RESOURCE
+        resources:
+          requests:
+            memory: 512m
+            cpu: 250m
+          limits:
+            memory: 1024Mi
+            cpu: 500m
+        ports:
+        - name: api
+          containerPort: 9200
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+spec:
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      containers:
+      - name: mariadb
+        image: mariadb:10.5.9
+        envFrom:
+          - configMapRef:
+              name: mariadb
+        resources:
+          requests:
+            memory: 128Mi
+            cpu: 250m
+          limits:
+            memory: 256Mi
+            cpu: 500m
+        ports:
+        - name: db
+          containerPort: 3306
