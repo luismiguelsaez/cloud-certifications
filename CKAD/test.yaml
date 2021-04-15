@@ -1,0 +1,38 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: webserver
+  labels:
+    app: webserver
+spec:
+  containers:
+    - name: webserver
+      image: nginx:alpine
+      ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP 
+    - name: client
+      image: busybox
+      command:
+        - "sh"
+      args:
+        - "-c"
+        - "while true;do wget localhost:80 -O -;sleep 2;done"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webserver
+  labels:
+    app: webserver
+spec:
+  selector:
+    app: webserver
+  ports:
+    - name: web
+      port: 80
+      targetPort: 80
+      protocol: TCP
+# k run test -i --rm=true --restart=Never --image=busybox -- wget webserver:80 -O -
